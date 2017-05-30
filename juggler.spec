@@ -1,5 +1,5 @@
 Name:		juggler
-Version:	0.0.1
+Version:	0.0.2
 Release:	1%{?dist}
 Summary:	A simple UDP packet forwarder in threaded C.
 
@@ -8,8 +8,7 @@ License:	ASL 2.0
 URL:		https://github.com/ghostflame/juggler
 Source0:	https://github.com/ghostflame/juggler/archive/%{version}.tar.gz
 
-BuildRequires:	gcc
-Requires(pre):
+
 
 %description
 A simple, threaded UDP packet forwarder.  It can do many to one, one to many or
