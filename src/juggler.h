@@ -63,12 +63,7 @@ struct source_port
 {
     SRC                 *   next;
     struct sockaddr_in      sa;
-    //struct sockaddr_in      from;
     uint16_t                port;
-    int                     fd;
-
-    TRGT                *   targets;
-    unsigned char       *   buf;
 };
 
 

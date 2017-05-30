@@ -39,23 +39,51 @@ pthread_t thread_throw( void *(*fp) (void *), void *arg )
 
 void *thread_loop( void *arg )
 {
+    TRGT *t, *ct, *targets;
+    unsigned char *buffer;
+    struct timeval tv;
     ssize_t bc, sc;
-    //socklen_t slen;
-    TRGT *t, *ot;
+    int i, sk;
     THRD *ta;
     SRC *s;
 
     ta = (THRD *) arg;
     s  = (SRC *)  ta->arg;
 
-    s->buf = (unsigned char *) calloc( 1, cfg->max );
+    buffer  = (unsigned char *) calloc( 1, cfg->max );
+    targets = (TRGT *) calloc( cfg->tcount, sizeof( TRGT ) );
+
+    if( ( sk = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP ) ) < 0 )
+    {
+        fprintf( stderr, "Could not open source socket: %s\n", Err );
+        free( ta );
+        return NULL;
+    }
+
+    tv.tv_sec  = 3;
+    tv.tv_usec = 0;
+
+    if( setsockopt( sk, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof( struct timeval ) ) )
+    {
+        fprintf( stderr, "Could not set source socket timeout: %s\n", Err );
+        free( ta );
+        return NULL;
+    }
+
+    // bind our socket
+    if( bind( sk, (struct sockaddr *) &(s->sa), sizeof( struct sockaddr_in ) ) )
+    {
+        fprintf( stderr, "Could not bind to source port %hu: %s\n", s->port, Err );
+        exit( 1 );
+    }
+    printf( "Bound to port %hu.\n", ntohs( s->sa.sin_port ) );
+
 
     // copy the targets, grabbing a socket on the way
-    for( ot = cfg->targets; ot; ot = ot->next )
+    for( i = 0, ct = cfg->targets; ct; ct = ct->next, i++ )
     {
-        t = (TRGT *) calloc( 1, sizeof( TRGT ) );
-        
-        memcpy( t, ot, sizeof( TRGT ) );
+        t = targets + i;
+        memcpy( t, ct, sizeof( TRGT ) );
 
         if( ( t->fd = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP ) ) < 0 )
         {
@@ -63,25 +91,19 @@ void *thread_loop( void *arg )
             free( ta );
             return NULL;
         }
-
-        t->next = s->targets;
-        s->targets = t;
     }
 
-    // find the end of the list
-    for( t = s->targets; t->next; t = t->next );
-
-    // and join up the list
-    t->next = s->targets;
+    // and link them in a circle
+    for( i = 0; i < cfg->tcount; i++ )
+        targets[i].next = &(targets[(i + 1) % cfg->tcount]);
 
     // start t at the front
-    t = s->targets;
+    t = targets;
 
+    // now recv and push
     while( cfg->run )
     {
-        // slen = sizeof( struct sockaddr_in );
-        // if( ( bc = recvfrom( s->fd, s->buf, cfg->max, 0, (struct sockaddr *) &(s->sa), &slen ) ) < 0 )
-        if( ( bc = recv( s->fd, s->buf, cfg->max, 0 ) ) < 0 )
+        if( ( bc = recv( sk, buffer, cfg->max, 0 ) ) < 0 )
         {
             if( errno == EINTR || errno == EAGAIN )
                 continue;
@@ -94,7 +116,7 @@ void *thread_loop( void *arg )
             continue;
 
         // send that back out
-        if( ( sc = sendto( t->fd, s->buf, bc, 0, (struct sockaddr *) &(t->sa),
+        if( ( sc = sendto( t->fd, buffer, bc, 0, (struct sockaddr *) &(t->sa),
                         sizeof( struct sockaddr_in ) ) ) < bc )
             printf( "Only sent %ld out of %ld bytes to %s\n",
                     sc, bc, t->host );
