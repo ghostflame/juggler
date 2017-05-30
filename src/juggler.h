@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -33,6 +34,17 @@
 
 #define MAX_PACKET          16384
 
+enum log_levels
+{
+    LOG_ERROR = 0,
+    LOG_WARN,
+    LOG_NOTICE,
+    LOG_INFO,
+    LOG_DEBUG
+};
+
+
+
 typedef struct target_port TRGT;
 typedef struct source_port SRC;
 typedef struct main_config CONF;
@@ -44,6 +56,7 @@ struct thread_data
 {
     THRD                *   next;
     pthread_t               id;
+    int                     ctr;
     void                *   arg;
 };
 
@@ -75,6 +88,7 @@ struct main_config
     int                     tcount;
     int                     scount;
     int                     max;
+    int                     level;
 
     int                     run;
 };
@@ -82,8 +96,26 @@ struct main_config
 CONF *cfg;
 
 
+// main.c
+int logger( int level, int id, char *fmt, ... );
 
 // thread.c
-pthread_t thread_throw( void *(*fp) (void *), void *arg );
+pthread_t thread_throw( void *(*fp) (void *), void *arg, int ctr );
 void *thread_loop( void *arg );
+
+
+#define err( ... )          logger( LOG_ERROR,  -1, ## __VA_ARGS__ )
+#define warn( ... )         logger( LOG_WARN,   -1, ## __VA_ARGS__ )
+#define notice( ... )       logger( LOG_NOTICE, -1, ## __VA_ARGS__ )
+#define info( ... )         logger( LOG_INFO,   -1, ## __VA_ARGS__ )
+#define debug( ... )        logger( LOG_DEBUG,  -1, ## __VA_ARGS__ )
+
+
+#define terr( ... )         logger( LOG_ERROR,  id, ## __VA_ARGS__ )
+#define twarn( ... )        logger( LOG_WARN,   id, ## __VA_ARGS__ )
+#define tnotice( ... )      logger( LOG_NOTICE, id, ## __VA_ARGS__ )
+#define tinfo( ... )        logger( LOG_INFO,   id, ## __VA_ARGS__ )
+#define tdebug( ... )       logger( LOG_DEBUG,  id, ## __VA_ARGS__ )
+
+
 

@@ -2,6 +2,7 @@
 
 PORT=12100
 MESG="Test message"
+REST=0
 
 function usage( )
 {
@@ -15,13 +16,15 @@ EOF
     exit 0
 }
 
-while getopts "Hm:p:" o; do
+while getopts "Hrm:p:" o; do
     case $o in
         H)  usage
             ;;
         m)  MESG="$OPTARG"
             ;;
         p)  PORT=$OPTARG
+            ;;
+        r)  REST=1
             ;;
     esac
 done
@@ -34,5 +37,8 @@ MESG="$MESG."
   while [ 1 ]; do
     printf "[%08d] %s\n" $i "$MESG"
     ((i++))
+    if [ $REST -gt 0 ]; then
+        sleep 1
+    fi
   done ) | nc -w 1 -u 127.0.0.1 $PORT
 

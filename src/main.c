@@ -20,6 +20,7 @@ Options:\n\
  -s <source>             Source port to listen on.  Option may repeat.\n\
  -t <target>             Target [<ip>:]<port> to send to.  Option may repeat.\n\n\
  -m <max size>           Maximum size packet (default: 16384)\n\
+ -l <level>              Specify a log level (err, warn, notice, info, debug)\n\
 Juggler will listen on all specified UDP ports and load-balance (round robin\n\
 for now) packets across the specified targets.\n\n";
 
@@ -29,11 +30,58 @@ for now) packets across the specified targets.\n\n";
 
 
 
+int logger( int level, int id, char *fmt, ... )
+{
+    va_list args;
+    char buf[4096];
+    FILE *f;
+
+    if( level > cfg->level )
+        return 0;
+
+    f = ( level < LOG_WARN ) ? stderr : stdout;
+
+    va_start( args, fmt );
+    vsnprintf( buf, 4096, fmt, args );
+    va_end( args );
+
+    if( id < 0 )
+        return fprintf( f, "%s\n", buf );
+
+    return fprintf( f, "[%d] %s\n", id, buf );
+}
+
+
+void set_log_level( char *level )
+{
+    if( !level )
+    {
+        cfg->level = LOG_NOTICE;
+        return;
+    }
+
+    if( !strcasecmp( level, "debug" ) )
+        cfg->level = LOG_DEBUG;
+    else if( !strcasecmp( level, "info" ) )
+        cfg->level = LOG_INFO;
+    else if( !strcasecmp( level, "notice" ) )
+        cfg->level = LOG_NOTICE;
+    else if( !strcasecmp( level, "warn" ) )
+        cfg->level = LOG_WARN;
+    else if( !strcasecmp( level, "error" ) )
+        cfg->level = LOG_ERROR;
+    else
+    {
+        err( "Unrecognised log level: %s", level );
+        exit( 1 );
+    }
+}
+
 
 
 void finish_loop( int sig )
 {
-    printf( "\nCaught stop signal.\n" );
+    info( "Caught stop signal." );
     cfg->run = 0;
 }
 
@@ -52,7 +100,7 @@ int set_signals( void )
      || sigaction( SIGQUIT, &sa, NULL )
      || sigaction( SIGINT,  &sa, NULL ) )
     {
-        fprintf( stderr, "Could not set exit signal handlers -- %s", Err );
+        err( "Could not set exit signal handlers -- %s", Err );
         return -1;
     }
 
@@ -84,7 +132,7 @@ int add_target( char *target )
 
     if( !( tmp.port = (uint16_t) strtoul( pt, NULL, 10 ) ) )
     {
-        fprintf( stderr, "Invalid target port specification '%s'\n", target );
+        err( "Invalid target port specification '%s'", target );
         return -1;
     }
 
@@ -122,7 +170,7 @@ int add_source( char *port )
 
     if( !( p = (uint16_t) strtoul( port, NULL, 10 ) ) )
     {
-        fprintf( stderr, "Invalid source port specification '%s'\n", port );
+        err( "Invalid source port specification '%s'", port );
         return -1;
     }
 
@@ -179,18 +227,22 @@ void reverse_lists( void )
 
 int main( int ac, char **av )
 {
+    int i, o;
     SRC *s;
-    int o;
 
     cfg = (CONF *) calloc( 1, sizeof( CONF ) );
     cfg->max = MAX_PACKET;
+    cfg->level = LOG_NOTICE;
 
-    while( ( o = getopt( ac, av, "hHm:t:s:" ) ) != -1 )
+    while( ( o = getopt( ac, av, "hHm:t:s:l:" ) ) != -1 )
         switch( o )
         {
             case 'H':
             case 'h':
                 usage( 0 );
+                break;
+            case 'l':
+                set_log_level( optarg );
                 break;
             case 'm':
                 cfg->max = atoi( optarg );
@@ -204,14 +256,14 @@ int main( int ac, char **av )
                     usage( 1 );
                 break;
             default:
-                fprintf( stderr, "Unrecognised option: %c\n\n", (char) o );
+                err( "Unrecognised option: %c\n", (char) o );
                 usage( 1 );
                 break;
         }
 
     if( !cfg->scount || !cfg->tcount )
     {
-        fprintf( stderr, "Both sources and targets are needed.\n\n" );
+        err( "Both sources and targets are needed.\n" );
         usage( 1 );
     }
 
@@ -220,8 +272,8 @@ int main( int ac, char **av )
 
     cfg->run = 1;
 
-    for( s = cfg->sources; s; s = s->next )
-        thread_throw( thread_loop, s );
+    for( i = 0, s = cfg->sources; s; s = s->next, i++ )
+        thread_throw( thread_loop, s, i );
 
     while( cfg->run )
         sleep( 1 );
