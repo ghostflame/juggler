@@ -21,7 +21,6 @@ many to many.
 
 
 %build
-%configure
 make %{?_smp_mflags}
 
 

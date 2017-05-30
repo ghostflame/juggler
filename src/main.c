@@ -261,9 +261,9 @@ int main( int ac, char **av )
                 break;
         }
 
-    if( !cfg->scount || !cfg->tcount )
+    if( !cfg->scount )
     {
-        err( "Both sources and targets are needed.\n" );
+        err( "No sources defined.\n" );
         usage( 1 );
     }
 
