@@ -1,5 +1,5 @@
 Name:		juggler
-Version:	0.0.4
+Version:	0.0.5
 Release:	1%{?dist}
 Summary:	A simple UDP packet forwarder in threaded C.
 
