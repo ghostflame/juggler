@@ -1,0 +1,38 @@
+.\" Juggler manual page
+.TH JUGGLER "1" "May 2017" "Networking Utilities" "User Commands"
+.SH NAME
+juggler - UDP load-balancer
+.SH SYNOPSIS
+.nf
+.BI "juggler -h"
+.BI "juggler [-m <" size ">] [-l <" level ">] -s <" port "> [-s <" port "> ...] [-t [<" host ">:]<" port "> ...]
+.fi
+.SH DESCRIPTION
+\fBJuggler\fP is a basic UDP load-balancer that listens on whichever ports are specified and round-robins UDP packets to the specified
+target ports.  Without a target port, \fBjuggler\fP writes to stdout.  It is written in threaded C, with one thread per listening port.
+.PP
+The options are:
+.TP
+\fB\-h\fR
+print help
+.TP
+\fB\-m\fR \fI<size>\fR
+set maximum packet size - default is 16384
+.TP
+\fB\-l\fR \fI<level>\fR
+set log level (error, warn, notice, info or debug) - default is notice
+.TP
+\fB\-s\fR \fI<port>\fR
+listen on specified UDP port for packets (option can repeat)
+.TP
+\fB\-t\fR \fI[<host>:]<port>\fR
+send to host:port (host defaults to localhost) (option can repeat)
+.SH BEHAVIOUR
+\fBJuggler\fP is a simple soul.  It performs no health checks (very difficult anyway with UDP).  It receives packets and just round-robins
+them to the configured targets.  It does no checking on the contents, or the senders.  It logs problems to stdout.
+.PP
+If you need something more complex, you probably want nginx.
+.SH SEE ALSO
+.BR nginx (8)
+.SH AUTHOR
+\fBJuggler\fP is written and maintained by John Denholm, Sky Betting And Gaming.

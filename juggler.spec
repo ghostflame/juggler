@@ -1,5 +1,5 @@
 Name:		juggler
-Version:	0.0.2
+Version:	0.0.3
 Release:	1%{?dist}
 Summary:	A simple UDP packet forwarder in threaded C.
 
@@ -26,13 +26,14 @@ make %{?_smp_mflags}
 %install
 DESTDIR=%{buildroot} \
 BINDIR=%{buildroot}%{_bindir} \
+MANDIR=%{buildroot}%{_mandir} \
 %make_install
 
 
 %files
 %doc
 %{_bindir}/juggler
-
+%{_mandir}/juggler.1.gz
 
 %changelog
 
