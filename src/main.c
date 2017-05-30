@@ -116,8 +116,10 @@ int add_target( char *target )
 // TODO - add bind interface
 int add_source( char *port )
 {
+    struct timeval tv;
     uint16_t p;
     SRC *s;
+    int sk;
 
     if( !( p = (uint16_t) strtoul( port, NULL, 10 ) ) )
     {
@@ -125,12 +127,38 @@ int add_source( char *port )
         return -1;
     }
 
+    if( ( sk = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP ) ) < 0 )
+    {
+        fprintf( stderr, "Could not open source socket: %s\n", Err );
+        exit( 1 );
+    }
+
+    tv.tv_sec  = 3;
+    tv.tv_usec = 0;
+
+    if( setsockopt( sk, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof( struct timeval ) ) )
+    {
+        fprintf( stderr, "Could not set source socket timeout: %s\n", Err );
+        exit( 1 );
+    }
+
     s = (SRC *) calloc( 1, sizeof( SRC ) );
     s->port = p;
+    s->fd   = sk;
+
+    // can't set the buffer yet, we might not have read a max argument
 
     s->sa.sin_family        = AF_INET;
     s->sa.sin_port          = htons( s->port );
     s->sa.sin_addr.s_addr   = INADDR_ANY;
+
+    // bind our socket
+    if( bind( s->fd, (struct sockaddr *) &(s->sa), sizeof( struct sockaddr_in ) ) )
+    {
+        fprintf( stderr, "Could not bind to source port %hu: %s\n", s->port, Err );
+        exit( 1 );
+    }
+    printf( "Bound to port %hu.\n", ntohs( s->sa.sin_port ) );
 
     s->next = cfg->sources;
     cfg->sources = s;
@@ -138,6 +166,40 @@ int add_source( char *port )
 
     return 0;
 }
+
+
+void reverse_lists( void )
+{
+    TRGT *t, *tlist;
+    SRC *s, *slist;
+
+    tlist = cfg->targets;
+    cfg->targets = NULL;
+
+    while( tlist )
+    {
+        t = tlist;
+        tlist = t->next;
+
+        t->next = cfg->targets;
+        cfg->targets = t;
+    }
+
+
+    slist = cfg->sources;
+    cfg->sources = NULL;
+
+    while( slist )
+    {
+        s = slist;
+        slist = s->next;
+
+        s->next = cfg->sources;
+        cfg->sources = s;
+    }
+}
+
+
 
 
 int main( int ac, char **av )
@@ -178,8 +240,8 @@ int main( int ac, char **av )
         usage( 1 );
     }
 
-
     set_signals( );
+    reverse_lists( );
 
     cfg->run = 1;
 

@@ -39,7 +39,6 @@ pthread_t thread_throw( void *(*fp) (void *), void *arg )
 
 void *thread_loop( void *arg )
 {
-    struct timeval tv;
     ssize_t bc, sc;
     //socklen_t slen;
     TRGT *t, *ot;
@@ -48,11 +47,8 @@ void *thread_loop( void *arg )
 
     ta = (THRD *) arg;
     s  = (SRC *)  ta->arg;
-    free( ta );
 
-    s->buf     = (unsigned char *) calloc( 1, cfg->max );
-    tv.tv_sec  = 3;
-    tv.tv_usec = 0;
+    s->buf = (unsigned char *) calloc( 1, cfg->max );
 
     // copy the targets, grabbing a socket on the way
     for( ot = cfg->targets; ot; ot = ot->next )
@@ -64,7 +60,8 @@ void *thread_loop( void *arg )
         if( ( t->fd = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP ) ) < 0 )
         {
             fprintf( stderr, "Could not open target socket: %s\n", Err );
-            exit( 1 );
+            free( ta );
+            return NULL;
         }
 
         t->next = s->targets;
@@ -76,24 +73,6 @@ void *thread_loop( void *arg )
 
     // and join up the list
     t->next = s->targets;
-
-    if( ( s->fd = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP ) ) < 0 )
-    {
-        fprintf( stderr, "Could not open source socket: %s\n", Err );
-        exit( 1 );
-    }
-    if( setsockopt( s->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof( struct timeval ) ) )
-    {
-        fprintf( stderr, "Could not set source socket timeout: %s\n", Err );
-        exit( 1 );
-    }
-
-    if( bind( s->fd, (struct sockaddr *) &(s->sa), sizeof( struct sockaddr_in ) ) )
-    {
-        fprintf( stderr, "Could not bind to source port %hu: %s\n", s->port, Err );
-        exit( 1 );
-    }
-    printf( "Bound to port %hu.\n", ntohs( s->sa.sin_port ) );
 
     // start t at the front
     t = s->targets;
@@ -108,7 +87,7 @@ void *thread_loop( void *arg )
                 continue;
 
             fprintf( stderr, "Recv error on source port %hu: %s\n", s->port, Err );
-            exit( 1 );
+            break;
         }
 
         if( !bc )
@@ -124,6 +103,7 @@ void *thread_loop( void *arg )
         t = t->next;
     }
 
+    free( ta );
     return NULL;
 }
 

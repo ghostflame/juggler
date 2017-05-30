@@ -9,7 +9,7 @@ URL:		https://github.com/ghostflame/juggler
 Source0:	https://github.com/ghostflame/juggler/archive/%{version}.tar.gz
 
 BuildRequires:	gcc
-Requires(pre):	systemd
+Requires(pre):
 
 %description
 A simple, threaded UDP packet forwarder.  It can do many to one, one to many or
