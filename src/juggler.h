@@ -32,7 +32,10 @@
 #define Err strerror( errno )
 #endif
 
+
 #define MAX_PACKET          16384
+#define RECONN_DELAY        3
+
 
 enum log_levels
 {
@@ -69,6 +72,7 @@ struct target_port
     int                     fd;
     char                *   host;
     uint16_t                port;
+    uint32_t                until;
 };
 
 
@@ -77,6 +81,7 @@ struct source_port
     SRC                 *   next;
     struct sockaddr_in      sa;
     uint16_t                port;
+    uint32_t                until;
 };
 
 
@@ -84,6 +89,10 @@ struct main_config
 {
     TRGT                *   targets;
     SRC                 *   sources;
+    FILE                *   logto;
+
+    uint32_t                ts;
+    uint32_t                delay;
 
     int                     tcount;
     int                     scount;
@@ -97,7 +106,7 @@ CONF *cfg;
 
 
 // main.c
-int logger( int level, int id, char *fmt, ... );
+size_t logger( int level, int id, char *fmt, ... );
 
 // thread.c
 pthread_t thread_throw( void *(*fp) (void *), void *arg, int ctr );

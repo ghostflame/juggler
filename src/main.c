@@ -21,6 +21,7 @@ Options:\n\
  -t <target>             Target [<ip>:]<port> to send to.  Option may repeat.\n\n\
  -m <max size>           Maximum size packet (default: 16384)\n\
  -l <level>              Specify a log level (err, warn, notice, info, debug)\n\
+ -d <sec>                Specify a reconnect delay in seconds\n\
 Juggler will listen on all specified UDP ports and load-balance (round robin\n\
 for now) packets across the specified targets.\n\n";
 
@@ -30,25 +31,36 @@ for now) packets across the specified targets.\n\n";
 
 
 
-int logger( int level, int id, char *fmt, ... )
+size_t logger( int level, int id, char *fmt, ... )
 {
-    va_list args;
+    struct timeval tv;
     char buf[4096];
-    FILE *f;
+    struct tm tm;
+    va_list args;
+    size_t s = 0;
 
     if( level > cfg->level )
         return 0;
 
-    f = ( level < LOG_WARN ) ? stderr : stdout;
+    // get the time
+    gettimeofday( &tv, NULL );
+    localtime_r( &(tv.tv_sec), &tm );
 
+    // write a timestamp
+    s += strftime( buf + s, 4095 - s, "[%F %T", &tm );
+    s += snprintf( buf + s, 4095 - s, ".%06ld ", tv.tv_usec );
+    s += strftime( buf + s, 4095 - s, "%Z] ", &tm );
+
+    // add the log line
     va_start( args, fmt );
-    vsnprintf( buf, 4096, fmt, args );
+    s += vsnprintf( buf + s, 4095 - s, fmt, args );
     va_end( args );
 
-    if( id < 0 )
-        return fprintf( f, "%s\n", buf );
+    // and a newline
+    buf[s++] = '\n';
 
-    return fprintf( f, "[%d] %s\n", id, buf );
+    // and write
+    return fwrite( buf, s, 1, cfg->logto );
 }
 
 
@@ -156,8 +168,6 @@ int add_target( char *target )
     cfg->targets = t;
     cfg->tcount++;
 
-    printf( "Added target %s:%hu\n", t->host, t->port );
-
     return 0;
 }
 
@@ -206,6 +216,8 @@ void reverse_lists( void )
 
         t->next = cfg->targets;
         cfg->targets = t;
+
+        info( "Added target %s:%hu.", t->host, t->port );
     }
 
 
@@ -233,8 +245,10 @@ int main( int ac, char **av )
     cfg = (CONF *) calloc( 1, sizeof( CONF ) );
     cfg->max = MAX_PACKET;
     cfg->level = LOG_NOTICE;
+    cfg->delay = RECONN_DELAY;
+    cfg->logto = stdout;
 
-    while( ( o = getopt( ac, av, "hHm:t:s:l:" ) ) != -1 )
+    while( ( o = getopt( ac, av, "hHm:t:s:l:d:" ) ) != -1 )
         switch( o )
         {
             case 'H':
@@ -255,11 +269,18 @@ int main( int ac, char **av )
                 if( add_target( optarg ) )
                     usage( 1 );
                 break;
+            case 'd':
+                cfg->delay = atoi( optarg );
+                break;
             default:
                 err( "Unrecognised option: %c\n", (char) o );
                 usage( 1 );
                 break;
         }
+
+    // log to stderr if we are writing to stdout
+    if( !cfg->targets )
+        cfg->logto = stderr;
 
     if( !cfg->scount )
     {
@@ -276,7 +297,10 @@ int main( int ac, char **av )
         thread_throw( thread_loop, s, i );
 
     while( cfg->run )
-        sleep( 1 );
+    {
+        cfg->ts = time( NULL );
+        usleep( 25000 );
+    }
 
     return 0;
 }
