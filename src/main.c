@@ -21,7 +21,7 @@ Options:\n\
  -t <target>             Target [<ip>:]<port> to send to.  Option may repeat.\n\n\
  -m <max size>           Maximum size packet (default: 16384)\n\
  -l <level>              Specify a log level (err, warn, notice, info, debug)\n\
- -d <sec>                Specify a reconnect delay in seconds\n\
+ -d <sec>                Specify a reconnect delay in seconds\n\n\
 Juggler will listen on all specified UDP ports and load-balance (round robin\n\
 for now) packets across the specified targets.\n\n";
 

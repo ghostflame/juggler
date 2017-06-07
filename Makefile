@@ -31,4 +31,7 @@ uninstall:
 clean:
 	@cd src && $(MAKE) $(MFLAGS) clean
 
-
+release:
+	@git tag $(VERS)
+	@git push
+	@git push --tags
